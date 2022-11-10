@@ -17,7 +17,7 @@ public class Server {
     private static ConcurrentHashMap<Player, Socket> socketMap;
     private static ConcurrentLinkedQueue<Player> matchingList;
 
-    // 8 end chessboard:[111000000, 111000, 111, 100100100, 10010010, 1001001, 100010001, 1010100]
+    // 8 end chessboard:[111000000, 000111000, 000000111, 100100100, 010010010, 001001001, 100010001, 001010100]
     private static final int[] END_STATE = {448, 56, 7, 292, 146, 73, 273, 84};
 
     public Server() {
@@ -105,7 +105,7 @@ public class Server {
 
     }
 
-    private void handleClientDisconnect(Player player){
+    private void handleClientDisconnect(Player player) {
         matchingList.remove(player);
         try {
             socketMap.remove(player).close();
@@ -147,7 +147,7 @@ public class Server {
             String msg2 = String.format("type:lose-resp;content:x=%d&y=%d;", x, y);
             send(s1, msg1);
             send(s2, msg2);
-        } else if (!newBoard.contains("0")) {
+        } else if (gameDraw(newBoard)) {
             //draw
             Player anotherPlayer = player.getGame().getAnotherPlayer(player);
             player.setInGame(false);
@@ -166,6 +166,10 @@ public class Server {
             send(socket, msg);
         }
 
+    }
+
+    private boolean gameDraw(String newBoard) {
+        return !newBoard.contains("0");
     }
 
     private boolean hasPlayerWon(int _board) {

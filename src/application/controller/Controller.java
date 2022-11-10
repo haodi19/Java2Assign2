@@ -331,7 +331,7 @@ public class Controller implements Initializable {
                 }
                 String content = msgList.get("request-resp").poll();
                 int symbol = Integer.parseInt(content.split("=")[1]);
-                if (symbol == 1) {
+                if (symbol == CIRCLE) {
                     self = CIRCLE;
                     opponent = CROSS;
                     Platform.runLater(() -> updateState(MY_TURN));
