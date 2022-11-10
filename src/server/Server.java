@@ -64,10 +64,8 @@ public class Server {
                 p2.setInGame(true);
                 p1.setGame(game);
                 p2.setGame(game);
-                Socket s1 = socketMap.get(p1);
-                Socket s2 = socketMap.get(p2);
-                send(s1, "type:request-resp;content:symbol=1;");
-                send(s2, "type:request-resp;content:symbol=2;");
+                send(p1, "type:request-resp;content:symbol=1;");
+                send(p2, "type:request-resp;content:symbol=2;");
             }
 
         }
@@ -116,9 +114,8 @@ public class Server {
             Player anotherPlayer = player.getGame().getAnotherPlayer(player);
             player.setInGame(false);
             anotherPlayer.setInGame(false);
-            Socket s2 = socketMap.get(anotherPlayer);
             String msg = "type:opponent-disconnect-resp;content:null;";
-            send(s2, msg);
+            send(anotherPlayer, msg);
         }
     }
 
@@ -141,29 +138,24 @@ public class Server {
             Player anotherPlayer = player.getGame().getAnotherPlayer(player);
             player.setInGame(false);
             anotherPlayer.setInGame(false);
-            Socket s1 = socketMap.get(player);
-            Socket s2 = socketMap.get(anotherPlayer);
             String msg1 = "type:win-resp;content:null";
             String msg2 = String.format("type:lose-resp;content:x=%d&y=%d;", x, y);
-            send(s1, msg1);
-            send(s2, msg2);
+            send(player, msg1);
+            send(anotherPlayer, msg2);
         } else if (gameDraw(newBoard)) {
             //draw
             Player anotherPlayer = player.getGame().getAnotherPlayer(player);
             player.setInGame(false);
             anotherPlayer.setInGame(false);
-            Socket s1 = socketMap.get(player);
-            Socket s2 = socketMap.get(anotherPlayer);
             String msg1 = "type:draw-resp;content:null";
             String msg2 = String.format("type:draw-resp;content:x=%d&y=%d;", x, y);
-            send(s1, msg1);
-            send(s2, msg2);
+            send(player, msg1);
+            send(anotherPlayer, msg2);
         } else {
             //go on
             Player anotherPlayer = player.getGame().getAnotherPlayer(player);
-            Socket socket = socketMap.get(anotherPlayer);
             String msg = String.format("type:step-resp;content:x=%d&y=%d;", x, y);
-            send(socket, msg);
+            send(anotherPlayer, msg);
         }
 
     }
@@ -181,12 +173,12 @@ public class Server {
         return false;
     }
 
-    private void send(Socket socket, String msg) {
+    private void send(Player player, String msg) {
         try {
-            OutputStream os = socket.getOutputStream();
+            OutputStream os = socketMap.get(player).getOutputStream();
             os.write(msg.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            e.printStackTrace();
+            handleClientDisconnect(player);
         }
     }
 
