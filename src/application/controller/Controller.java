@@ -4,6 +4,7 @@ import application.account.Account;
 import client.Client;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Pos;
@@ -39,17 +40,17 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 
 public class Controller implements Initializable {
-    private static int self;
-    private static int opponent;
-    private static final int EMPTY = 0;
+    private int self;
+    private int opponent;
 
+    private static final int EMPTY = 0;
     private static final int CIRCLE = 1;
     private static final int CROSS = 2;
 
     private static final int BOUND = 90;
     private static final int OFFSET = 15;
 
-    private static int state;
+    private int state;
     private static final int READY = 0;
     private static final int MY_TURN = 1;
     private static final int OPPONENT_TURN = 2;
@@ -61,11 +62,11 @@ public class Controller implements Initializable {
     private static final int DRAW = 8;
     private static final int OPPONENT_DISCONNECT = 9;
 
-    private static Client client;
+    private Client client;
 
     private ConcurrentHashMap<String, ConcurrentLinkedQueue<String>> msgList;
 
-    private static Account account;
+    private Account account;
 
     @FXML
     private Pane baseSquare;
@@ -73,16 +74,16 @@ public class Controller implements Initializable {
     @FXML
     private Rectangle gamePanel;
 
-    private static int[][] chessBoard;
-    private static List<Node> chessList;
+    private int[][] chessBoard;
+    private List<Node> chessList;
 
-    private static Button startButton;
+    private Button startButton;
 
-    private static VBox stateBoard;
+    private VBox stateBoard;
 
-    private static Label stateText = new Label();
+    private Label stateText = new Label();
 
-    private static Label stateValue = new Label();
+    private Label stateValue = new Label();
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -110,6 +111,7 @@ public class Controller implements Initializable {
     private void initializeState() {
         updateState(CONNECTING);
     }
+
 
     private void initializeStartButton() {
         startButton = new Button();
@@ -411,7 +413,7 @@ public class Controller implements Initializable {
                 String type = resp[0].split(":")[1];
                 addMsgToList(type, resp[1].split(":")[1]);
 
-            } catch (IOException e) {
+            } catch (IOException e) { ;
                 //server error
                 Platform.runLater(() -> endGame(SERVER_ERROR));
                 try {
