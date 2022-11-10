@@ -413,7 +413,7 @@ public class Controller implements Initializable {
                 String type = resp[0].split(":")[1];
                 addMsgToList(type, resp[1].split(":")[1]);
 
-            } catch (IOException e) { ;
+            } catch (IOException e) {
                 //server error
                 Platform.runLater(() -> endGame(SERVER_ERROR));
                 try {
