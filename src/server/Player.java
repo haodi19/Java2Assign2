@@ -1,32 +1,62 @@
 package server;
 
+import java.io.*;
 import java.util.Objects;
 
-public class Player {
+public class Player implements Serializable {
+    private static final long serialVersionUID = 999L;
+    public static int tempId = -1;
+    public volatile static int registerId;
+
     private Integer id;
-    private String IP;
-    private Integer port;
-    private boolean inGame;
-    private Game game;
+    private String username;
+    private String password;
+    private int gameCounts;
+    private int winCounts;
+    private transient boolean inGame;
+    private transient Game game;
+
+
+    public static void init() throws IOException {
+        File currentIdFile = new File("./src/server/player/registerId.txt");
+        if (!currentIdFile.exists()) {
+            currentIdFile.createNewFile();
+            BufferedWriter bw = new BufferedWriter(new FileWriter(currentIdFile));
+            bw.write("1");
+            registerId = 1;
+            bw.close();
+        }else {
+            BufferedReader br = new BufferedReader(new FileReader(currentIdFile));
+            registerId = Integer.parseInt(br.readLine());
+            br.close();
+        }
+    }
 
     public Player() {
         this.inGame = false;
         game = null;
     }
 
-    public Player(Integer id, String IP, Integer port) {
+    public Player(Integer id) {
         this.id = id;
-        this.IP = IP;
-        this.port = port;
         this.inGame = false;
         game = null;
     }
 
-    public Player(String IP, Integer port) {
-        this.IP = IP;
-        this.port = port;
-        this.inGame = false;
-        game = null;
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public Integer getId() {
@@ -37,28 +67,13 @@ public class Player {
         this.id = id;
     }
 
-    public String getIP() {
-        return IP;
-    }
-
-    public void setIP(String IP) {
-        this.IP = IP;
-    }
-
-    public Integer getPort() {
-        return port;
-    }
-
-    public void setPort(Integer port) {
-        this.port = port;
-    }
 
     public boolean isInGame() {
         return inGame;
     }
 
     public void setInGame(boolean inGame) {
-        if(!inGame){
+        if (!inGame) {
             this.game = null;
         }
         this.inGame = inGame;
@@ -68,33 +83,51 @@ public class Player {
         this.game = game;
     }
 
-    public Game getGame(){
-        if(!isInGame()){
+    public Game getGame() {
+        if (!isInGame()) {
             return null;
         }
         return game;
     }
+
+    public int getGameCounts() {
+        return gameCounts;
+    }
+
+    public void setGameCounts(int gameCounts) {
+        this.gameCounts = gameCounts;
+    }
+
+    public int getWinCounts() {
+        return winCounts;
+    }
+
+    public void setWinCounts(int winCounts) {
+        this.winCounts = winCounts;
+    }
+
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Player player = (Player) o;
-        return Objects.equals(IP, player.IP) && Objects.equals(port, player.port);
+        return id.equals(player.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 
     @Override
     public String toString() {
         return "Player{" +
                 "id=" + id +
-                ", IP='" + IP + '\'' +
-                ", port=" + port +
-                ", inGame=" + inGame +
+                ", username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                ", gameCounts=" + gameCounts +
+                ", winCounts=" + winCounts +
                 '}';
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(IP, port);
     }
 }

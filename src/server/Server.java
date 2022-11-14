@@ -1,9 +1,6 @@
 package server;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.InetAddress;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
@@ -17,6 +14,10 @@ public class Server {
     private static ConcurrentHashMap<Player, Socket> socketMap;
     private static ConcurrentLinkedQueue<Player> matchingList;
 
+    private static ObjectOutputStream oos;
+    private static ObjectInputStream ois;
+    private static final String CURRENT_FILE_PATH = "./src/server/player/";
+
     // 8 end chessboard:[111000000, 000111000, 000000111, 100100100, 010010010, 001001001, 100010001, 001010100]
     private static final int[] END_STATE = {448, 56, 7, 292, 146, 73, 273, 84};
 
@@ -25,9 +26,18 @@ public class Server {
             socketMap = new ConcurrentHashMap<>();
             matchingList = new ConcurrentLinkedQueue<>();
             serverSocket = new ServerSocket(port);
+            initialAccountDir();
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private void initialAccountDir() throws IOException {
+        File file = new File(CURRENT_FILE_PATH);
+        if (!file.exists()) {
+            file.mkdir();
+        }
+        Player.init();
     }
 
     protected void start() {
@@ -39,9 +49,7 @@ public class Server {
         while (true) {
             try {
                 Socket socket = serverSocket.accept();
-                InetAddress clientIP = socket.getInetAddress();
-                Integer clientPort = socket.getPort();
-                Player player = new Player(clientIP.getHostAddress(), clientPort);
+                Player player = new Player(Player.tempId--);
                 if (!socketMap.containsKey(player)) {
                     socketMap.put(player, socket);
                     Thread handleThread = new Thread(() -> handleReceivedMsg(player));
@@ -87,10 +95,16 @@ public class Server {
                 String type = msg[1].split(":")[1];
                 switch (type) {
                     case "match-request":
-                        handleRequest(player);
+                        handleMatchRequest(player);
                         break;
                     case "update-chessboard":
                         handleOneStep(player, msg[2].split(":")[1], Integer.parseInt(msg[3].split(":")[1]), Integer.parseInt(msg[4].split(":")[1]));
+                        break;
+                    case "login-request":
+                        handleLoginRequest(player, msg[2].split(":")[1], msg[3].split(":")[1]);
+                        break;
+                    case "register-request":
+                        handleRegisterRequest(player, msg[2].split(":")[1], msg[3].split(":")[1]);
                         break;
                 }
 
@@ -103,10 +117,74 @@ public class Server {
 
     }
 
+
+    private void handleLoginRequest(Player player, String username, String password) {
+        try {
+            File accountFile = new File(CURRENT_FILE_PATH + username + ".txt");
+            if (!accountFile.exists()) {
+                send(player, "type:login-resp;content:id=-1&cnt=-1&win=-1;");
+                return;
+            }
+            ois = new ObjectInputStream(new FileInputStream(accountFile));
+            Player readPlayer = (Player) ois.readObject();
+            if (!password.equals(readPlayer.getPassword()) || socketMap.containsKey(readPlayer)) {
+                send(player, "type:login-resp;content:id=-1&cnt=-1&win=-1;");
+                return;
+            }
+
+            Socket soc = socketMap.remove(player);
+            player.setId(readPlayer.getId());
+            player.setUsername(readPlayer.getUsername());
+            player.setPassword(readPlayer.getPassword());
+            player.setGameCounts(readPlayer.getGameCounts());
+            player.setWinCounts(readPlayer.getWinCounts());
+            socketMap.put(player, soc);
+
+            String msg = String.format("type:login-resp;content:id=%s&cnt=%d&win=%d;", player.getId(), player.getGameCounts(), player.getWinCounts());
+            send(player, msg);
+
+
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private void handleRegisterRequest(Player player, String username, String password) {
+        try {
+            File accountFile = new File(CURRENT_FILE_PATH + username + ".txt");
+            if (accountFile.exists()) {
+                send(player, "type:register-resp;content:-1;");
+                return;
+            }
+            writePlayer(username, password, accountFile);
+            send(player, "type:register-resp;content:1;");
+
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private synchronized void writePlayer(String username, String password, File accountFile) throws IOException {
+        oos = new ObjectOutputStream(new FileOutputStream(accountFile));
+        Player p = new Player(Player.registerId++);
+        p.setUsername(username);
+        p.setPassword(password);
+        oos.writeObject(p);
+        BufferedWriter bw = new BufferedWriter(new FileWriter(CURRENT_FILE_PATH + "registerId.txt"));
+        bw.write(String.valueOf(Player.registerId));
+        bw.close();
+    }
+
     private void handleClientDisconnect(Player player) {
         matchingList.remove(player);
         try {
-            socketMap.remove(player).close();
+            Socket soc = socketMap.remove(player);
+            if (soc != null) {
+                soc.close();
+            }
         } catch (IOException ioException) {
             ioException.printStackTrace();
         }
@@ -119,11 +197,16 @@ public class Server {
         }
     }
 
-    private void handleRequest(Player player) {
+    private void handleMatchRequest(Player player) {
         matchingList.add(player);
     }
 
-    private void handleOneStep(Player player, String newBoard, int x, int y) {
+    private void updatePlayersFile(Player player) throws IOException {
+        oos = new ObjectOutputStream(new FileOutputStream(CURRENT_FILE_PATH + player.getUsername() + ".txt"));
+        oos.writeObject(player);
+    }
+
+    private void handleOneStep(Player player, String newBoard, int x, int y) throws IOException {
         int _board;
         if (player.equals(player.getGame().getPlayer1())) {
             //keep p1 = 1,let p2 -> 0
@@ -138,6 +221,14 @@ public class Server {
             Player anotherPlayer = player.getGame().getAnotherPlayer(player);
             player.setInGame(false);
             anotherPlayer.setInGame(false);
+
+            player.setGameCounts(player.getGameCounts() + 1);
+            anotherPlayer.setGameCounts(anotherPlayer.getGameCounts() + 1);
+            player.setWinCounts(player.getWinCounts() + 1);
+
+            updatePlayersFile(player);
+            updatePlayersFile(anotherPlayer);
+
             String msg1 = "type:win-resp;content:null";
             String msg2 = String.format("type:lose-resp;content:x=%d&y=%d;", x, y);
             send(player, msg1);
@@ -147,6 +238,13 @@ public class Server {
             Player anotherPlayer = player.getGame().getAnotherPlayer(player);
             player.setInGame(false);
             anotherPlayer.setInGame(false);
+
+            player.setGameCounts(player.getGameCounts() + 1);
+            anotherPlayer.setGameCounts(anotherPlayer.getGameCounts() + 1);
+
+            updatePlayersFile(player);
+            updatePlayersFile(anotherPlayer);
+
             String msg1 = "type:draw-resp;content:null";
             String msg2 = String.format("type:draw-resp;content:x=%d&y=%d;", x, y);
             send(player, msg1);
@@ -159,6 +257,7 @@ public class Server {
         }
 
     }
+
 
     private boolean gameDraw(String newBoard) {
         return !newBoard.contains("0");
@@ -175,7 +274,9 @@ public class Server {
 
     private void send(Player player, String msg) {
         try {
-            OutputStream os = socketMap.get(player).getOutputStream();
+            Socket soc = socketMap.get(player);
+            while (soc == null) ;
+            OutputStream os = soc.getOutputStream();
             os.write(msg.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             handleClientDisconnect(player);
